@@ -3,6 +3,7 @@ const DEFAULT_SERVER = 'http://localhost:4096';
 let serverUrl = DEFAULT_SERVER;
 let outputLang = 'zh';
 let currentText = '';
+let lastRawMarkdown = '';
 let isRunning = false;
 let abortController = null;
 
@@ -142,6 +143,7 @@ async function summarize(prompt) {
   abortController = new AbortController();
 
   let fullText = '';
+  lastRawMarkdown = '';
 
   try {
     // Get page content
@@ -248,7 +250,8 @@ async function summarize(prompt) {
           if (event.type === 'session.status') {
             if (props.status?.type === 'idle' && fullText) {
               showProgress('完成', 100);
-              resultContent.innerHTML = escapeHtml(fullText);
+              lastRawMarkdown = fullText;
+              resultContent.innerHTML = marked.parse(fullText);
               sessionDone = true;
               break;
             }
@@ -261,7 +264,8 @@ async function summarize(prompt) {
 
     // Final cleanup
     if (fullText) {
-      resultContent.innerHTML = escapeHtml(fullText);
+      lastRawMarkdown = fullText;
+      resultContent.innerHTML = marked.parse(fullText);
       saveResult(pageData.url, fullText);
     } else if (!resultContent.innerHTML || resultContent.innerHTML === '<span class="cursor"></span>') {
       showError('没有收到响应，请检查 OpenCode 是否正常运行。');
@@ -270,7 +274,8 @@ async function summarize(prompt) {
   } catch (e) {
     if (e.name === 'AbortError') {
       if (fullText) {
-        resultContent.innerHTML = escapeHtml(fullText) + '\n\n<em style="color:var(--text-muted)">[已停止]</em>';
+        lastRawMarkdown = fullText;
+        resultContent.innerHTML = marked.parse(fullText) + '<p style="color:var(--text-muted)"><em>[已停止]</em></p>';
         saveResult(null, fullText);
       } else {
         resultArea.classList.remove('show');
@@ -321,14 +326,15 @@ async function restoreResult() {
   const data = await chrome.storage.local.get('lastResult');
   const saved = data.lastResult;
   if (saved && saved.url === currentUrl && saved.text) {
-    resultContent.innerHTML = escapeHtml(saved.text);
+    lastRawMarkdown = saved.text;
+    resultContent.innerHTML = marked.parse(saved.text);
     resultArea.classList.add('show');
   }
 }
 
 // Copy result
 copyBtn.addEventListener('click', () => {
-  const text = resultContent.innerText.replace('[已停止]', '').trim();
+  const text = lastRawMarkdown || resultContent.innerText.replace('[已停止]', '').trim();
   navigator.clipboard.writeText(text).then(() => {
     copiedToast.classList.add('show');
     setTimeout(() => copiedToast.classList.remove('show'), 2000);
