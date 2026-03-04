@@ -190,8 +190,8 @@ input:focus, select:focus, textarea:focus {
   flex: 1;
 }
 
-/* Prompt area */
-.prompt-area {
+/* Action area */
+.action-area {
   padding: 12px 16px;
   display: flex;
   flex-direction: column;
@@ -199,67 +199,77 @@ input:focus, select:focus, textarea:focus {
   border-bottom: 1px solid var(--border);
 }
 
-.prompt-row {
+.action-buttons {
   display: flex;
   gap: 8px;
-  align-items: flex-end;
 }
 
-textarea#promptInput {
+.action-btn {
   flex: 1;
-  resize: none;
-  min-height: 36px;
-  max-height: 80px;
-  font-size: 13px;
-  font-family: 'DM Sans', sans-serif;
-  line-height: 1.4;
-}
-
-.quick-prompts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.chip {
   background: var(--surface);
   border: 1px solid var(--border);
-  color: var(--text-dim);
-  border-radius: 100px;
-  font-size: 11px;
-  padding: 3px 10px;
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 12px;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
 }
-.chip:hover {
+.action-btn:hover {
   border-color: rgba(127, 255, 127, 0.4);
   color: var(--accent);
   background: var(--accent-dim);
 }
+.action-btn:active { transform: scale(0.97); }
+.action-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
 
-/* Run button */
-.run-btn {
-  background: var(--accent);
-  border: none;
-  border-radius: var(--radius);
-  color: #0e0e10;
-  font-family: 'DM Mono', monospace;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 8px 16px;
-  cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s;
-  display: flex;
+/* Progress bar */
+.progress-bar {
+  display: none;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+}
+.progress-bar.show { display: flex; }
+
+.progress-status {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
   white-space: nowrap;
-  letter-spacing: 0.02em;
   flex-shrink: 0;
 }
-.run-btn:hover { opacity: 0.9; }
-.run-btn:active { transform: scale(0.97); }
-.run-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.progress-track {
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.stop-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  line-height: 0;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+.stop-btn:hover { color: var(--error); border-color: var(--error); }
 
 /* Result area */
 .result-area {

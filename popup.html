@@ -57,21 +57,17 @@
     <div class="page-title" id="pageTitle">Loading...</div>
   </div>
 
-  <!-- Prompt Area -->
-  <div class="prompt-area">
-    <div class="quick-prompts">
-      <div class="chip" data-prompt="请用中文总结这篇文章的核心要点，3-5个要点，每个要点一句话。">📝 核心要点</div>
-      <div class="chip" data-prompt="用一段话简要总结这篇文章的主要内容（中文，100字以内）。">⚡ 一句话总结</div>
-      <div class="chip" data-prompt="请从这个视频字幕中提取完整的菜谱，格式如下：菜名、所需食材及用量、调料及用量、详细操作步骤（按顺序编号，包含火候、时间等关键细节）、小贴士。语言精简清晰，方便照着做菜。">🍳 整理菜谱</div>
-      <div class="chip" data-prompt="用中文总结这篇文章，包括：背景、主要内容、结论和关键数据。">📊 详细总结</div>
+  <!-- Action Buttons -->
+  <div class="action-area">
+    <div class="action-buttons">
+      <button class="action-btn" id="btnRecipe" data-prompt="请从这份视频字幕中提取完整的菜谱，严格按以下结构输出：&#10;&#10;一、菜名&#10;（如字幕中有多道菜，逐一列出）&#10;&#10;二、食材清单&#10;• 主料：名称 + 用量（如&quot;五花肉 500g&quot;）&#10;• 辅料/配菜：名称 + 用量&#10;• 调料：名称 + 用量（如&quot;生抽 2勺&quot;、&quot;盐 适量&quot;）&#10;注意：字幕中提到的所有食材和调料都必须列出，不要遗漏。用量如果字幕未明确说明，标注&quot;适量&quot;。&#10;&#10;三、详细步骤&#10;按操作顺序编号，每步必须包含：&#10;• 具体操作（切法、下锅顺序等）&#10;• 火候（大火/中火/小火）&#10;• 时间（如&quot;煮3分钟&quot;、&quot;焖20分钟&quot;）&#10;• 关键判断标准（如&quot;炒至变色&quot;、&quot;煮到筷子能插透&quot;）&#10;&#10;四、小贴士&#10;提取字幕中提到的技巧、注意事项、替代方案、常见错误等。&#10;&#10;要求：&#10;- 语言精简清晰，方便照着做菜&#10;- 不要编造字幕中没有的信息&#10;- 如果字幕中有时间戳对应的关键步骤，标注对应时间点">🍳 整理菜谱</button>
+      <button class="action-btn" id="btnSummary" data-prompt="请对内容进行分段总结，遵循以下规则：&#10;&#10;一、分段原则&#10;以&quot;内容推进节点&quot;分段，而不是固定时长。出现以下情况之一即可切段：&#10;• 话题改变&#10;• 论点推进或结论出现&#10;• 叙事阶段转换&#10;• 举例 → 总结 → 延伸 的结构变化&#10;&#10;二、每段输出内容必须包含&#10;【阶段编号】&#10;【时间范围】（如有字幕时间戳则严格引用）&#10;【本段核心内容】（一句话概括本段在整体中的作用）&#10;【详细要点】按逻辑顺序列出内容推进过程，保留关键事实、因果关系、推理链条。若有观点/结论/预测需明确写出。&#10;&#10;三、总结要求&#10;- 不要复述原文，而是重构逻辑&#10;- 不要省略信息密集段&#10;- 保留&quot;为什么讲这一段&quot;的结构意义&#10;- 若出现反转、递进、总结段，必须标明&#10;&#10;四、整体要求&#10;输出应呈现为&quot;逐阶段时间轴解析&quot;，而不是普通摘要。若内容较长，请完整覆盖至结尾。">📊 详细总结</button>
     </div>
-    <div class="prompt-row">
-      <textarea id="promptInput" placeholder="自定义提示词，或点击上方快捷选项..." rows="2">请用中文总结这篇文章的核心要点，3-5个要点，每个要点一句话。</textarea>
-      <button class="run-btn" id="runBtn">
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-          <path d="M3 2l11 6-11 6V2z" fill="currentColor"/>
-        </svg>
-        运行
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-status" id="progressStatus"></div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <button class="stop-btn" id="stopBtn" title="停止">
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><rect x="3" y="3" width="10" height="10" rx="1" fill="currentColor"/></svg>
       </button>
     </div>
   </div>

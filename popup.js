@@ -15,8 +15,6 @@ const serverUrlInput = document.getElementById('serverUrl');
 const outputLangSelect = document.getElementById('outputLang');
 const saveSettingsBtn = document.getElementById('saveSettings');
 const pageTitle = document.getElementById('pageTitle');
-const promptInput = document.getElementById('promptInput');
-const runBtn = document.getElementById('runBtn');
 const resultArea = document.getElementById('resultArea');
 const resultContent = document.getElementById('resultContent');
 const errorBox = document.getElementById('errorBox');
@@ -25,7 +23,11 @@ const copyBtn = document.getElementById('copyBtn');
 const clearBtn = document.getElementById('clearBtn');
 const copiedToast = document.getElementById('copiedToast');
 const footerInfo = document.getElementById('footerInfo');
-const chips = document.querySelectorAll('.chip');
+const actionBtns = document.querySelectorAll('.action-btn');
+const progressBar = document.getElementById('progressBar');
+const progressStatus = document.getElementById('progressStatus');
+const progressFill = document.getElementById('progressFill');
+const stopBtn = document.getElementById('stopBtn');
 
 // Load settings
 async function loadSettings() {
@@ -101,26 +103,39 @@ function hideError() {
   errorBox.classList.remove('show');
 }
 
+// Progress helpers
+function showProgress(msg, pct) {
+  progressBar.classList.add('show');
+  actionBtns.forEach(b => b.disabled = true);
+  progressStatus.textContent = msg;
+  if (pct != null) progressFill.style.width = pct + '%';
+}
+
+function hideProgress() {
+  progressBar.classList.remove('show');
+  actionBtns.forEach(b => b.disabled = false);
+  progressFill.style.width = '0%';
+}
+
 // Main summarize function
-async function summarize() {
+async function summarize(prompt) {
   if (isRunning) {
-    // Cancel
     abortController?.abort();
     return;
   }
-
-  hideError();
-  const prompt = promptInput.value.trim();
   if (!prompt) return;
 
+  hideError();
+
+  showProgress('检查服务器...', 5);
   const online = await checkServer();
   if (!online) {
+    hideProgress();
     showError(`无法连接到 OpenCode 服务器。\n请先运行：\n\nopencode serve --cors chrome-extension://`);
     return;
   }
 
   isRunning = true;
-  runBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="4" y="4" width="8" height="8" fill="currentColor"/></svg> 停止`;
   spinner.classList.add('show');
   resultArea.classList.add('show');
   resultContent.innerHTML = '<span class="cursor"></span>';
@@ -130,10 +145,12 @@ async function summarize() {
 
   try {
     // Get page content
+    showProgress('获取页面内容...', 10);
     const pageData = await getPageContent();
 
     // Bilibili video: fetch subtitles from extension context
     if (pageData.type === 'bilibili-video') {
+      showProgress('获取字幕...', 20);
       const subtitleResult = await fetchBilibiliSubtitle(pageData.url);
       console.log('[Summarizer] Subtitle result length:', subtitleResult?.length || 0);
 
@@ -151,6 +168,7 @@ async function summarize() {
     const contentLabel = pageData.type === 'video-subtitle' ? '视频字幕' : '网页文章内容';
     const fullPrompt = `以下是${contentLabel}：\n\n标题：${pageData.title}\n链接：${pageData.url}\n\n---\n\n${currentText}\n\n---\n\n${prompt}`;
 
+    showProgress('创建会话...', 40);
     // Step 1: Create session
     const sessionRes = await fetch(`${serverUrl}/session`, {
       method: 'POST',
@@ -168,6 +186,7 @@ async function summarize() {
       signal: abortController.signal
     });
 
+    showProgress('发送请求...', 60);
     // Step 3: Send message asynchronously
     const promptRes = await fetch(`${serverUrl}/session/${sessionId}/prompt_async`, {
       method: 'POST',
@@ -180,6 +199,7 @@ async function summarize() {
       throw new Error(`发送消息失败: ${promptRes.status}`);
     }
 
+    showProgress('生成中...', 80);
     // Step 4: Read SSE stream
     const reader = eventRes.body.getReader();
     const decoder = new TextDecoder();
@@ -227,6 +247,7 @@ async function summarize() {
           // Session idle = done
           if (event.type === 'session.status') {
             if (props.status?.type === 'idle' && fullText) {
+              showProgress('完成', 100);
               resultContent.innerHTML = escapeHtml(fullText);
               sessionDone = true;
               break;
@@ -241,6 +262,7 @@ async function summarize() {
     // Final cleanup
     if (fullText) {
       resultContent.innerHTML = escapeHtml(fullText);
+      saveResult(pageData.url, fullText);
     } else if (!resultContent.innerHTML || resultContent.innerHTML === '<span class="cursor"></span>') {
       showError('没有收到响应，请检查 OpenCode 是否正常运行。');
     }
@@ -249,6 +271,7 @@ async function summarize() {
     if (e.name === 'AbortError') {
       if (fullText) {
         resultContent.innerHTML = escapeHtml(fullText) + '\n\n<em style="color:var(--text-muted)">[已停止]</em>';
+        saveResult(null, fullText);
       } else {
         resultArea.classList.remove('show');
       }
@@ -257,7 +280,7 @@ async function summarize() {
     }
   } finally {
     isRunning = false;
-    runBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 2l11 6-11 6V2z" fill="currentColor"/></svg> 运行`;
+    hideProgress();
     spinner.classList.remove('show');
     abortController = null;
   }
@@ -271,30 +294,37 @@ function escapeHtml(text) {
     .replace(/\n/g, '<br>');
 }
 
-// Quick prompt chips
-chips.forEach(chip => {
-  chip.addEventListener('click', () => {
-    promptInput.value = chip.dataset.prompt;
-    promptInput.style.height = 'auto';
-    promptInput.style.height = promptInput.scrollHeight + 'px';
+// Action buttons — click to run immediately
+actionBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    summarize(btn.dataset.prompt);
   });
 });
 
-// Auto resize textarea
-promptInput.addEventListener('input', () => {
-  promptInput.style.height = 'auto';
-  promptInput.style.height = Math.min(promptInput.scrollHeight, 80) + 'px';
+// Stop button
+stopBtn.addEventListener('click', () => {
+  abortController?.abort();
 });
 
-// Run on Enter (Shift+Enter for newline)
-promptInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    summarize();
+// Persist last result per URL
+async function saveResult(url, text) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const key = url || tab?.url || '';
+  if (key && text) {
+    await chrome.storage.local.set({ lastResult: { url: key, text, time: Date.now() } });
   }
-});
+}
 
-runBtn.addEventListener('click', summarize);
+async function restoreResult() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const currentUrl = tab?.url || '';
+  const data = await chrome.storage.local.get('lastResult');
+  const saved = data.lastResult;
+  if (saved && saved.url === currentUrl && saved.text) {
+    resultContent.innerHTML = escapeHtml(saved.text);
+    resultArea.classList.add('show');
+  }
+}
 
 // Copy result
 copyBtn.addEventListener('click', () => {
@@ -310,10 +340,27 @@ clearBtn.addEventListener('click', () => {
   resultArea.classList.remove('show');
   resultContent.innerHTML = '';
   hideError();
+  chrome.storage.local.remove('lastResult');
 });
 
 // Footer info
 footerInfo.textContent = `opencode serve --cors chrome-extension://`;
+
+// Convert seconds to SRT time format: HH:MM:SS,mmm
+function secondsToSrtTime(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.round((seconds % 1) * 1000);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
+}
+
+// Convert Bilibili subtitle JSON array to SRT format string
+function subtitleToSrt(body) {
+  return body.map((item, i) => {
+    return `${i + 1}\n${secondsToSrtTime(item.from)} --> ${secondsToSrtTime(item.to)}\n${item.content}`;
+  }).join('\n\n');
+}
 
 // Fetch Bilibili subtitle from extension context (bypasses page CSP)
 async function fetchBilibiliSubtitle(pageUrl) {
@@ -335,15 +382,24 @@ async function fetchBilibiliSubtitle(pageUrl) {
     console.log('[Summarizer] View API code:', viewData?.code);
 
     const aid = viewData?.data?.aid;
-    const cid = viewData?.data?.cid;
-    if (!aid || !cid) {
-      console.warn('[Summarizer] Missing aid/cid from view API');
+    if (!aid) {
+      console.warn('[Summarizer] Missing aid from view API');
       return null;
     }
-    console.log('[Summarizer] aid:', aid, 'cid:', cid);
 
-    // Step 2: Get subtitle list from player API
-    const playerUrl = `https://api.bilibili.com/x/player/v2?aid=${aid}&cid=${cid}`;
+    // Determine cid based on page number (for multi-part videos)
+    const pMatch = pageUrl.match(/[?&]p=(\d+)/);
+    const pageNum = pMatch ? parseInt(pMatch[1], 10) : 1;
+    const pages = viewData?.data?.pages;
+    const cid = pages?.[pageNum - 1]?.cid || viewData?.data?.cid;
+    if (!cid) {
+      console.warn('[Summarizer] Missing cid from view API');
+      return null;
+    }
+    console.log('[Summarizer] aid:', aid, 'cid:', cid, 'page:', pageNum);
+
+    // Step 2: Get subtitle list from player wbi API
+    const playerUrl = `https://api.bilibili.com/x/player/wbi/v2?aid=${aid}&cid=${cid}`;
     console.log('[Summarizer] Fetching player info:', playerUrl);
     const playerRes = await fetch(playerUrl);
     const playerData = await playerRes.json();
@@ -358,8 +414,10 @@ async function fetchBilibiliSubtitle(pageUrl) {
 
     console.log('[Summarizer] Available subtitles:', subtitles.map(s => `${s.lan}: ${s.lan_doc}`));
 
-    // Prefer Chinese subtitle
-    const zhSub = subtitles.find(s => /zh/.test(s.lan)) || subtitles[0];
+    // Prefer AI Chinese subtitle, then any Chinese, then first available
+    const zhSub = subtitles.find(s => s.lan === 'ai-zh')
+      || subtitles.find(s => /zh/.test(s.lan))
+      || subtitles[0];
     let subtitleUrl = zhSub.subtitle_url;
     if (subtitleUrl.startsWith('//')) subtitleUrl = 'https:' + subtitleUrl;
 
@@ -374,7 +432,8 @@ async function fetchBilibiliSubtitle(pageUrl) {
     }
 
     console.log('[Summarizer] Got subtitle lines:', subData.body.length);
-    return subData.body.map(item => item.content).join('\n');
+    // Return SRT format with timestamps for better structured analysis
+    return subtitleToSrt(subData.body);
   } catch (e) {
     console.error('[Summarizer] Bilibili subtitle fetch error:', e);
     return null;
@@ -386,3 +445,4 @@ loadSettings().then(() => checkServer());
 getPageContent().then(data => {
   if (data.title) pageTitle.textContent = data.title;
 });
+restoreResult();
